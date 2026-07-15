@@ -404,22 +404,27 @@ PANELS.forEach(p=>{
   document.getElementById(`dl-${p.key}`).addEventListener('click', ()=> downloadPanel(p.key));
 });
 
-/* ---------- drawing ---------- */
-function drawContentFrame(ctx, ty){
-  ctx.clearRect(0,0,FRAME_W,FRAME_H);
+/* ---------- drawing ----------
+   Draws directly at the TARGET canvas's own width/height, so the 188% zoom
+   is always relative to that canvas — not a shrunk copy of the big frame.
+   ty is expressed in "big frame" pixels and scaled proportionally so all
+   sizes crop the same relative region of the source image. */
+function drawContentFrame(ctx, w, h, ty){
+  ctx.clearRect(0,0,w,h);
   ctx.fillStyle = '#000';
-  ctx.fillRect(0,0,FRAME_W,FRAME_H);
+  ctx.fillRect(0,0,w,h);
   if(!img) return;
   ctx.save();
   ctx.beginPath();
-  ctx.rect(0,0,FRAME_W,FRAME_H);
+  ctx.rect(0,0,w,h);
   ctx.clip();
-  const baseScale = FRAME_W / img.width; // fit width at 100%
+  const baseScale = w / img.width; // fit width at 100% for THIS canvas
   const scale = baseScale * (zoom/100);
   const drawW = img.width * scale;
   const drawH = img.height * scale;
-  const x = (FRAME_W - drawW)/2;
-  const y = (FRAME_H - drawH)/2 + ty;
+  const scaledTy = ty * (h / FRAME_H); // keep same relative offset at any size
+  const x = (w - drawW)/2;
+  const y = (h - drawH)/2 + scaledTy;
   ctx.drawImage(img, x, y, drawW, drawH);
   ctx.restore();
 }
@@ -427,7 +432,7 @@ function drawContentFrame(ctx, ty){
 function renderStage(){
   const canvas = document.getElementById('stageCanvas');
   canvas.width = FRAME_W; canvas.height = FRAME_H;
-  drawContentFrame(canvas.getContext('2d'), 0);
+  drawContentFrame(canvas.getContext('2d'), FRAME_W, FRAME_H, 0);
   document.getElementById('stageEmpty').style.display = img ? 'none' : 'block';
 }
 
@@ -437,21 +442,7 @@ function renderPanel(key){
   canvas.width = out.w; canvas.height = out.h;
   const ctx = canvas.getContext('2d');
 
-  const frame = document.createElement('canvas');
-  frame.width = FRAME_W; frame.height = FRAME_H;
-  drawContentFrame(frame.getContext('2d'), OFFSETS[key]);
-
-  ctx.clearRect(0,0,out.w,out.h);
-  if(out.black){
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0,0,out.w,out.h);
-    const s = Math.min(out.w/FRAME_W, out.h/FRAME_H);
-    const dw = FRAME_W*s, dh = FRAME_H*s;
-    const dx = (out.w-dw)/2, dy = (out.h-dh)/2;
-    ctx.drawImage(frame, dx, dy, dw, dh);
-  } else {
-    ctx.drawImage(frame, 0, 0, out.w, out.h);
-  }
+  drawContentFrame(ctx, out.w, out.h, OFFSETS[key]);
 
   document.getElementById(`empty-${key}`).style.display = img ? 'none' : 'block';
   document.getElementById(`dl-${key}`).disabled = !img;
