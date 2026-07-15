@@ -292,6 +292,7 @@
     <div class="seg" id="sizeSeg">
       <button data-mode="big" class="active">Big — 640×853</button>
       <button data-mode="small">Small — 1199×685 (on black)</button>
+      <button data-mode="story">Story — 400×685 (on black)</button>
     </div>
     <div class="dims" id="dimsLabel">Exporting each panel at <b>640 × 853</b> px</div>
   </div>
@@ -306,7 +307,8 @@ const FRAME_W = 640, FRAME_H = 853; // fixed big-banner positioning frame
 const OFFSETS = { top: 531, middle: 0, bottom: -531 };
 const OUT_SIZES = {
   big:   { w: 640,  h: 853, black: false },
-  small: { w: 1199, h: 685, black: true  }
+  small: { w: 1199, h: 685, black: true  },
+  story: { w: 400,  h: 685, black: true  }
 };
 
 let img = null;
