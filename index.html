@@ -91,7 +91,7 @@
       <input type="range" min="100" max="400" step="1" value="188" id="zoomSlider">
       <span id="zoomVal">188%</span>
     </div>
-    <div class="spec">Output size: <b>1199 × 685</b> · on black</div>
+    <div class="spec">Output size: <b>400 × 685</b> · on black</div>
   </div>
 
   <div class="card">
@@ -104,7 +104,6 @@
 </div>
 
 <script>
-const OUT_W = 1199, OUT_H = 685;
 const N = 9;
 
 let img = null;
@@ -159,7 +158,10 @@ function buildGrid(){
   }
 }
 
-/* ---- drawing ---- */
+/* ---- drawing: continuous vertical scroll, 9 evenly-spaced crops top to bottom ---- */
+const OUT_W = 400, OUT_H = 685;
+const PAD_SCALE = 0.778; // shrink factor for the letterbox bars (~76px on a 685-tall canvas)
+
 function drawContentFrame(ctx, w, h, ty){
   ctx.clearRect(0,0,w,h);
   ctx.fillStyle = '#000';
@@ -179,25 +181,40 @@ function drawContentFrame(ctx, w, h, ty){
   ctx.restore();
 }
 
-function maxShiftFor(w, h){
+function maxShiftFor(w, bandH){
   if(!img) return 0;
   const drawH = img.height * (w / img.width) * (zoom/100);
-  return Math.max(0, (drawH - h) / 2);
+  return Math.max(0, (drawH - bandH) / 2);
 }
 
-function tyForIndex(i, w, h){
-  const shift = maxShiftFor(w, h);
+function tyForIndex(i, w, bandH){
+  const shift = maxShiftFor(w, bandH);
   if(N === 1) return 0;
   const t = i / (N - 1);
   return shift - t * 2 * shift;
+}
+
+// Content is drawn undistorted (1:1, no squish) into a horizontal band that is
+// full width, with plain black bars above and below it — matching the reference output.
+function drawLetterboxed(ctx, w, h, ty, bandH, bandY){
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0,0,w,h);
+  if(!img) return;
+  const band = document.createElement('canvas');
+  band.width = w; band.height = bandH;
+  drawContentFrame(band.getContext('2d'), w, bandH, ty);
+  ctx.drawImage(band, 0, bandY);
 }
 
 function renderPanel(i){
   const canvas = document.getElementById(`cv-${i}`);
   if(!canvas) return;
   canvas.width = OUT_W; canvas.height = OUT_H;
-  const ty = tyForIndex(i, OUT_W, OUT_H);
-  drawContentFrame(canvas.getContext('2d'), OUT_W, OUT_H, ty);
+  const bandH = OUT_H * PAD_SCALE;
+  const bandY = (OUT_H - bandH) / 2;
+  const ty = tyForIndex(i, OUT_W, bandH);
+  drawLetterboxed(canvas.getContext('2d'), OUT_W, OUT_H, ty, bandH, bandY);
 }
 
 function renderAll(){
