@@ -171,7 +171,7 @@ function drawContentFrame(ctx, w, h, ty){
   ctx.beginPath();
   ctx.rect(0,0,w,h);
   ctx.clip();
-  const baseScale = w / img.width;
+  const baseScale = Math.max(w / img.width, h / img.height);
   const scale = baseScale * (zoom/100);
   const drawW = img.width * scale;
   const drawH = img.height * scale;
@@ -183,7 +183,8 @@ function drawContentFrame(ctx, w, h, ty){
 
 function maxShiftFor(w, bandH){
   if(!img) return 0;
-  const drawH = img.height * (w / img.width) * (zoom/100);
+  const baseScale = Math.max(w / img.width, bandH / img.height);
+  const drawH = img.height * baseScale * (zoom/100);
   return Math.max(0, (drawH - bandH) / 2);
 }
 
