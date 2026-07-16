@@ -54,6 +54,17 @@
   .spec{font-size:11.5px; color:#8a8a8a; margin-top:10px;}
   .spec b{color:#d4d4d4; font-weight:600;}
 
+  .layout-row{display:flex; gap:8px;}
+  .layout-btn{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
+    background:#1c1c1c; border:1.5px solid #333333; border-radius:10px;
+    padding:10px 4px; color:#a0a0a0; font-size:13px; font-weight:700;
+    cursor:pointer; transition:border-color .15s, color .15s, background .15s;
+  }
+  .layout-btn span{font-size:10px; font-weight:600; color:#787878;}
+  .layout-btn.active{ border-color:#afe4a1; color:#afe4a1; background:rgba(175,244,161,0.08); }
+  .layout-btn.active span{ color:#c8e6a0; }
+
   .grid9{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
   .cell{display:flex; flex-direction:column; align-items:center; gap:5px;}
   .cell canvas{width:100%; height:auto; border-radius:8px; background:#000; border:1px solid #333333;}
@@ -86,6 +97,16 @@
   </div>
 
   <div class="card">
+    <div class="card-label">Layout</div>
+    <div class="layout-row" id="layoutRow">
+      <button class="layout-btn" data-rows="1">3 × 1<span>3 parts</span></button>
+      <button class="layout-btn" data-rows="2">3 × 2<span>6 parts</span></button>
+      <button class="layout-btn active" data-rows="3">3 × 3<span>9 parts</span></button>
+      <button class="layout-btn" data-rows="4">3 × 4<span>12 parts</span></button>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="card-label">Zoom</div>
     <div class="row">
       <input type="range" min="100" max="400" step="1" value="100" id="zoomSlider">
@@ -95,7 +116,7 @@
   </div>
 
   <div class="card">
-    <div class="card-label">Preview — 9 Parts</div>
+    <div class="card-label" id="previewLabel">Preview — 9 Parts</div>
     <div class="grid9" id="grid9"></div>
   </div>
 
@@ -104,11 +125,28 @@
 </div>
 
 <script>
-const N = 9;
+let COLS = 3;
+let ROWS = 3;
+let N = COLS * ROWS;
 
 let img = null;
 let imgName = '';
 let zoom = 100;
+
+/* ---- layout ---- */
+const layoutRow = document.getElementById('layoutRow');
+const previewLabel = document.getElementById('previewLabel');
+layoutRow.addEventListener('click', e=>{
+  const btn = e.target.closest('.layout-btn');
+  if(!btn) return;
+  layoutRow.querySelectorAll('.layout-btn').forEach(b=> b.classList.remove('active'));
+  btn.classList.add('active');
+  ROWS = Number(btn.dataset.rows);
+  N = COLS * ROWS;
+  previewLabel.textContent = `Preview — ${N} Parts`;
+  downloadAllBtn.textContent = `Download All (${N})`;
+  if(img){ buildGrid(); renderAll(); }
+});
 
 /* ---- upload ---- */
 const dropzone = document.getElementById('dropzone');
@@ -146,8 +184,9 @@ zoomSlider.addEventListener('input', e=>{
   renderAll();
 });
 
-/* ---- build the 3x3 (9-cell) grid ---- */
+/* ---- build the grid (COLS fixed at 3, ROWS depends on selected layout) ---- */
 const grid9 = document.getElementById('grid9');
+const downloadAllBtn = document.getElementById('downloadAll');
 function buildGrid(){
   grid9.innerHTML = '';
   for(let i=0; i<N; i++){
@@ -163,7 +202,6 @@ function buildGrid(){
    when combined (like a real Instagram-grid split), not an overlapping pan ---- */
 const OUT_W = 400, OUT_H = 685;
 const PAD_SCALE = 0.778; // shrink factor for the letterbox bars (~76px on a 685-tall canvas)
-const COLS = 3, ROWS = 3;
 
 // One shared "frame" maps the whole source image to a COLS*OUT_W by ROWS*bandH
 // rectangle (cover-fit + zoom, centered). Each panel just reads its own
@@ -210,7 +248,7 @@ function renderPanel(i){
 
 function renderAll(){
   for(let i=0; i<N; i++) renderPanel(i);
-  document.getElementById('downloadAll').disabled = !img;
+  downloadAllBtn.disabled = !img;
 }
 
 function canvasToFile(canvas, filename){
@@ -241,7 +279,7 @@ function downloadFallback(files){
   });
 }
 
-document.getElementById('downloadAll').addEventListener('click', async ()=>{
+downloadAllBtn.addEventListener('click', async ()=>{
   const files = await getAllFiles();
   if(navigator.canShare && navigator.canShare({ files })){
     try{
