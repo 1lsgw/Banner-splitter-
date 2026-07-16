@@ -88,8 +88,8 @@
   <div class="card">
     <div class="card-label">Zoom</div>
     <div class="row">
-      <input type="range" min="100" max="400" step="1" value="188" id="zoomSlider">
-      <span id="zoomVal">188%</span>
+      <input type="range" min="100" max="400" step="1" value="100" id="zoomSlider">
+      <span id="zoomVal">100%</span>
     </div>
     <div class="spec">Output size: <b>400 × 685</b> · on black</div>
   </div>
@@ -108,7 +108,7 @@ const N = 9;
 
 let img = null;
 let imgName = '';
-let zoom = 188;
+let zoom = 100;
 
 /* ---- upload ---- */
 const dropzone = document.getElementById('dropzone');
@@ -158,53 +158,42 @@ function buildGrid(){
   }
 }
 
-/* ---- drawing: continuous vertical scroll, 9 evenly-spaced crops top to bottom ---- */
+/* ---- drawing: true 3x3 grid split — one framed rectangle of the source
+   photo, sliced into 9 non-overlapping tiles that reconstruct it exactly
+   when combined (like a real Instagram-grid split), not an overlapping pan ---- */
 const OUT_W = 400, OUT_H = 685;
 const PAD_SCALE = 0.778; // shrink factor for the letterbox bars (~76px on a 685-tall canvas)
+const COLS = 3, ROWS = 3;
 
-function drawContentFrame(ctx, w, h, ty){
-  ctx.clearRect(0,0,w,h);
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0,0,w,h);
-  if(!img) return;
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(0,0,w,h);
-  ctx.clip();
-  const baseScale = Math.max(w / img.width, h / img.height);
+// One shared "frame" maps the whole source image to a COLS*OUT_W by ROWS*bandH
+// rectangle (cover-fit + zoom, centered). Each panel just reads its own
+// non-overlapping slice of that frame directly out of the source image.
+function getFrame(bandH){
+  const totalW = OUT_W * COLS, totalH = bandH * ROWS;
+  if(!img) return { scale: 1, frameX: 0, frameY: 0, totalW, totalH };
+  const baseScale = Math.max(totalW / img.width, totalH / img.height);
   const scale = baseScale * (zoom/100);
-  const drawW = img.width * scale;
-  const drawH = img.height * scale;
-  const x = (w - drawW)/2;
-  const y = (h - drawH)/2 + ty;
-  ctx.drawImage(img, x, y, drawW, drawH);
-  ctx.restore();
+  const frameX = (totalW - img.width * scale) / 2;
+  const frameY = (totalH - img.height * scale) / 2;
+  return { scale, frameX, frameY, totalW, totalH };
 }
 
-function maxShiftFor(w, bandH){
-  if(!img) return 0;
-  const baseScale = Math.max(w / img.width, bandH / img.height);
-  const drawH = img.height * baseScale * (zoom/100);
-  return Math.max(0, (drawH - bandH) / 2);
-}
-
-function tyForIndex(i, w, bandH){
-  const shift = maxShiftFor(w, bandH);
-  if(N === 1) return 0;
-  const t = i / (N - 1);
-  return shift - t * 2 * shift;
-}
-
-// Content is drawn undistorted (1:1, no squish) into a horizontal band that is
-// full width, with plain black bars above and below it — matching the reference output.
-function drawLetterboxed(ctx, w, h, ty, bandH, bandY){
+function drawLetterboxed(ctx, w, h, row, col, bandH, bandY){
   ctx.clearRect(0,0,w,h);
   ctx.fillStyle = '#000';
   ctx.fillRect(0,0,w,h);
   if(!img) return;
+  const { scale, frameX, frameY } = getFrame(bandH);
+  const sx = (col * OUT_W - frameX) / scale;
+  const sy = (row * bandH - frameY) / scale;
+  const sW = OUT_W / scale;
+  const sH = bandH / scale;
   const band = document.createElement('canvas');
   band.width = w; band.height = bandH;
-  drawContentFrame(band.getContext('2d'), w, bandH, ty);
+  const bctx = band.getContext('2d');
+  bctx.fillStyle = '#000';
+  bctx.fillRect(0,0,w,bandH);
+  bctx.drawImage(img, sx, sy, sW, sH, 0, 0, w, bandH);
   ctx.drawImage(band, 0, bandY);
 }
 
@@ -214,8 +203,9 @@ function renderPanel(i){
   canvas.width = OUT_W; canvas.height = OUT_H;
   const bandH = OUT_H * PAD_SCALE;
   const bandY = (OUT_H - bandH) / 2;
-  const ty = tyForIndex(i, OUT_W, bandH);
-  drawLetterboxed(canvas.getContext('2d'), OUT_W, OUT_H, ty, bandH, bandY);
+  const row = Math.floor(i / COLS);
+  const col = i % COLS;
+  drawLetterboxed(canvas.getContext('2d'), OUT_W, OUT_H, row, col, bandH, bandY);
 }
 
 function renderAll(){
