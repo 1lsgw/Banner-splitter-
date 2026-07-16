@@ -259,11 +259,41 @@ function canvasToFile(canvas, filename){
   });
 }
 
+/* watermark is only baked in at export time — preview canvases stay untouched */
+function getWatermarkedCanvas(sourceCanvas){
+  const out = document.createElement('canvas');
+  out.width = sourceCanvas.width;
+  out.height = sourceCanvas.height;
+  const ctx = out.getContext('2d');
+  ctx.drawImage(sourceCanvas, 0, 0);
+
+  const text = '@leon_banners';
+  const fontSize = Math.round(out.width * 0.035);
+  ctx.font = `700 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'right';
+
+  const margin = Math.round(out.width * 0.03);
+  const x = out.width - margin;
+  const y = out.height - margin;
+
+  ctx.save();
+  ctx.globalAlpha = 0.35;
+  ctx.fillStyle = '#ffffff';
+  ctx.shadowColor = 'rgba(0,0,0,0.5)';
+  ctx.shadowBlur = 4;
+  ctx.fillText(text, x, y);
+  ctx.restore();
+
+  return out;
+}
+
 async function getAllFiles(){
   const files = [];
   for(let i=0; i<N; i++){
     const canvas = document.getElementById(`cv-${i}`);
-    files.push(await canvasToFile(canvas, `banner-${imgName}-part${i+1}.png`));
+    const watermarked = getWatermarkedCanvas(canvas);
+    files.push(await canvasToFile(watermarked, `banner-${imgName}-part${i+1}.png`));
   }
   return files;
 }
